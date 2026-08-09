@@ -1,0 +1,258 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Hitbox, ESP, Tracers, Size & Space Fling",
+   LoadingTitle = "Rayfield Interface",
+   LoadingSubtitle = "by YourName",
+   ConfigurationSaving = { Enabled = false },
+   KeySystem = false
+})
+
+local MainTab = Window:CreateTab("Main", 4483362458)
+
+-- ==================== [ ตัวแปรหลัก ] ====================
+_G.HeadSize = 10
+_G.HitboxEnabled = false
+_G.ESPEnabled = false
+_G.TracersEnabled = false
+_G.FlingEnabled = false
+_G.Transparency = 0.7
+_G.PlayerScale = 1
+
+-- ==================== [ ฟังก์ชันปรับขนาดตัว ] ====================
+local function ScalePlayer(scale)
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        local humanoid = player.Character.Humanoid
+        local depth = humanoid:FindFirstChild("BodyDepthScale")
+        local height = humanoid:FindFirstChild("BodyHeightScale")
+        local width = humanoid:FindFirstChild("BodyWidthScale")
+        local head = humanoid:FindFirstChild("HeadScale")
+
+        if depth then depth.Value = scale end
+        if height then height.Value = scale end
+        if width then width.Value = scale end
+        if head then head.Value = scale end
+    end
+end
+
+-- ==================== [ หมวดหมู่: ผู้เล่นอื่น (ESP / Hitbox) ] ====================
+MainTab:CreateSection("Enemy Visuals & Hitbox")
+
+MainTab:CreateInput({
+   Name = "Hitbox Size (Custom)",
+   PlaceholderText = "ใส่ขนาด 1 - 1000000",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+       local val = tonumber(Text)
+       if val then _G.HeadSize = math.clamp(val, 1, 1000000) end
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "Enable Hitbox",
+   CurrentValue = false,
+   Flag = "HitboxToggle",
+   Callback = function(Value) _G.HitboxEnabled = Value end,
+})
+
+MainTab:CreateToggle({
+   Name = "Rainbow Player ESP",
+   CurrentValue = false,
+   Flag = "ESPToggle",
+   Callback = function(Value)
+       _G.ESPEnabled = Value
+       if not Value then
+           for _, v in pairs(game:GetService("Players"):GetPlayers()) do
+               if v.Character and v.Character:FindFirstChild("RainbowESP") then
+                   v.Character.RainbowESP:Destroy()
+               end
+           end
+       end
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "Rainbow Tracers (Line)",
+   CurrentValue = false,
+   Flag = "TracersToggle",
+   Callback = function(Value)
+       _G.TracersEnabled = Value
+       if not Value then
+           local coreGui = game:GetService("CoreGui")
+           for _, obj in pairs(coreGui:GetChildren()) do
+               if obj:FindFirstChild("RainbowTracer") then
+                   obj:Destroy()
+               end
+           end
+       end
+   end,
+})
+
+-- ==================== [ หมวดหมู่: ระบบ Fling (ส่งออกนอกโลก) ] ====================
+MainTab:CreateSection("Super Space Fling")
+
+MainTab:CreateToggle({
+   Name = "Super Space Fling (โดนตัว = ปลิวออกนอกโลก)",
+   CurrentValue = false,
+   Flag = "FlingToggle",
+   Callback = function(Value)
+       _G.FlingEnabled = Value
+   end,
+})
+
+-- ==================== [ หมวดหมู่: ขนาดตัวผู้เล่น (ไร้ขีดจำกัด) ] ====================
+MainTab:CreateSection("Local Player Size (No Limits)")
+
+MainTab:CreateInput({
+   Name = "Set Player Size (Any Number)",
+   PlaceholderText = "เช่น 0.001 (จิ๋วมาก) หรือ 1000 (ยักษ์)",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+       local val = tonumber(Text)
+       if val then
+           _G.PlayerScale = val
+           ScalePlayer(val)
+       end
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "Mini Size (0.1)",
+   Callback = function()
+       _G.PlayerScale = 0.1
+       ScalePlayer(0.1)
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "Giant Size (50)",
+   Callback = function()
+       _G.PlayerScale = 50
+       ScalePlayer(50)
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "Reset to Normal Size (1)",
+   Callback = function()
+       _G.PlayerScale = 1
+       ScalePlayer(1)
+   end,
+})
+
+-- ==================== [ ระบบการทำงานพื้นหลัง ] ====================
+game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid")
+    task.wait(0.5)
+    ScalePlayer(_G.PlayerScale)
+end)
+
+-- ลูประบบ Super Space Fling (อัปเกรดแรงเหวี่ยงและความเร็วการหมุนสูงสุด)
+task.spawn(function()
+    local Services = game:GetService("RunService")
+    Services.Heartbeat:Connect(function()
+        if _G.FlingEnabled then
+            pcall(function()
+                local lp = game.Players.LocalPlayer
+                if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = lp.Character.HumanoidRootPart
+                    local oldVelocity = hrp.Velocity
+                    
+                    -- ปรับแรงเหวี่ยงขึ้นฟ้าและแรงหมุนในระดับมหาศาล (math.huge)
+                    hrp.Velocity = Vector3.new(999999, 9999999, 999999)
+                    hrp.RotVelocity = Vector3.new(1000000, 1000000, 1000000)
+                    
+                    Services.RenderStepped:Wait()
+                    hrp.Velocity = oldVelocity
+                end
+            end)
+        end
+    end)
+end)
+
+-- ลูประบบ Hitbox, ESP และ Tracers
+task.spawn(function()
+    local coreGui = game:GetService("CoreGui")
+    
+    while task.wait(0.1) do
+        local rainbowColor = Color3.fromHSV((tick() % 5) / 5, 1, 1)
+        
+        for _, v in pairs(game:GetService("Players"):GetPlayers()) do
+            if v ~= game.Players.LocalPlayer and v.Character then
+                -- 1. Hitbox
+                if _G.HitboxEnabled and v.Character:FindFirstChild("HumanoidRootPart") then
+                    pcall(function()
+                        local hrp = v.Character.HumanoidRootPart
+                        hrp.Size = Vector3.new(_G.HeadSize, _G.HeadSize, _G.HeadSize)
+                        hrp.Transparency = _G.Transparency
+                        hrp.BrickColor = BrickColor.new("Really red")
+                        hrp.Material = Enum.Material.Neon
+                        hrp.CanCollide = false
+                    end)
+                end
+                
+                -- 2. ESP
+                if _G.ESPEnabled then
+                    pcall(function()
+                        local highlight = v.Character:FindFirstChild("RainbowESP")
+                        if not highlight then
+                            highlight = Instance.new("Highlight")
+                            highlight.Name = "RainbowESP"
+                            highlight.Parent = v.Character
+                        end
+                        highlight.Adornee = v.Character
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                        highlight.FillTransparency = 0.6
+                        highlight.OutlineColor = rainbowColor
+                        highlight.OutlineTransparency = 0
+                    end)
+                end
+
+                -- 3. Tracers
+                if _G.TracersEnabled and v.Character:FindFirstChild("HumanoidRootPart") then
+                    pcall(function()
+                        local hrp = v.Character.HumanoidRootPart
+                        local camera = workspace.CurrentCamera
+                        local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+
+                        local tracerName = "RainbowTracer_" .. v.Name
+                        local lineFrame = coreGui:FindFirstChild(tracerName)
+
+                        if onScreen then
+                            if not lineFrame then
+                                lineFrame = Instance.new("Frame")
+                                lineFrame.Name = tracerName
+                                local groupTag = Instance.new("StringValue")
+                                groupTag.Name = "RainbowTracer"
+                                groupTag.Parent = lineFrame
+
+                                lineFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+                                lineFrame.BorderSizePixel = 0
+                                lineFrame.Parent = coreGui
+                            end
+
+                            local startX = camera.ViewportSize.X / 2
+                            local startY = camera.ViewportSize.Y
+                            local endX = screenPos.X
+                            local endY = screenPos.Y
+
+                            local distance = math.sqrt((endX - startX)^2 + (endY - startY)^2)
+                            local angle = math.atan2(endY - startY, endX - startX)
+
+                            lineFrame.Size = UDim2.new(0, distance, 0, 2)
+                            lineFrame.Position = UDim2.new(0, (startX + endX) / 2, 0, (startY + endY) / 2)
+                            lineFrame.Rotation = math.deg(angle)
+                            lineFrame.BackgroundColor3 = rainbowColor
+                            lineFrame.Visible = true
+                        else
+                            if lineFrame then
+                                lineFrame.Visible = false
+                            end
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end)
